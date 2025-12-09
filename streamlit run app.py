@@ -55,33 +55,30 @@ def set_background():
     st.markdown(
         """
         <style>
-        body {
-            background-color: #f5f5f5;
-            color: #111;
-        }
-        .stButton>button {
-            background-color: #1976D2;
-            color: white;
-        }
+        body { background-color: #f5f5f5; color: #111; }
+        .stButton>button { background-color: #1976D2; color: white; }
         .stTextInput>div>input, .stTextArea>div>textarea, .stDateInput>div>input {
-            background-color: white;
-            color: #111;
+            background-color: white; color: #111;
         }
         </style>
-        """, unsafe_allow_html=True
+        """,
+        unsafe_allow_html=True,
     )
 
 
-# ------------------ DARK MODE TOGGLE ------------------
+# ------------------ DARK MODE ------------------
 def dark_mode_toggle():
     dark = st.sidebar.checkbox("🌙 Dark Mode", value=False)
     if dark:
-        st.markdown("""
+        st.markdown(
+            """
             <style>
             body { background-color: #111 !important; color: white !important; }
             .stButton>button { background-color: #444 !important; color: white !important; }
             </style>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 # ------------------ LOGOUT ------------------
@@ -95,12 +92,12 @@ def logout_button():
 # ------------------ TASKS PAGE ------------------
 def tasks_page():
     set_background()
-    st.title("📝 Tasks")
+    st.title("📝 Your Tasks")
     users = load_users()
     username = st.session_state.user
     tasks = users[username]["tasks"]
 
-    # Add Task (on top)
+    # Add Task Form
     st.subheader("➕ Add New Task")
     with st.form("add_task_form"):
         title = st.text_input("Task Title")
@@ -122,7 +119,7 @@ def tasks_page():
                     "Priority": priority,
                     "AssignedBy": assigned_by
                 }
-                tasks.insert(0, new_task)  # new task on top
+                tasks.insert(0, new_task)
                 users[username]["tasks"] = tasks
                 save_users(users)
                 st.success("Task added successfully!")
@@ -131,7 +128,6 @@ def tasks_page():
                 st.error("Task title required.")
 
     st.markdown("---")
-    st.subheader("📋 All Tasks")
 
     if len(tasks) == 0:
         st.warning("No tasks found.")
@@ -145,19 +141,25 @@ def tasks_page():
 
     st.markdown("---")
 
-    # Display rows
+    # Display Rows
     for i, t in enumerate(tasks):
         row_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
         row_cols[0].write(t["Task"])
         row_cols[1].write(t["Description"])
         row_cols[2].write(t["Start"])
         row_cols[3].write(t["End"])
-        row_cols[4].write(t["Status"])
-        color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t.get("Priority", "Low"), "blue")
-        row_cols[5].markdown(f"<span style='color:{color}'>{t.get('Priority', 'Low')}</span>", unsafe_allow_html=True)
+
+        # Status color
+        status_color = {"Pending": "orange", "Running": "blue", "Completed": "green", "Overdue": "red"}.get(t["Status"], "black")
+        row_cols[4].markdown(f"<span style='color:{status_color};'><b>{t['Status']}</b></span>", unsafe_allow_html=True)
+
+        # Priority color
+        priority_color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t["Priority"], "black")
+        row_cols[5].markdown(f"<span style='color:{priority_color};'><b>{t['Priority']}</b></span>", unsafe_allow_html=True)
+
         row_cols[6].write(t.get("AssignedBy", ""))
 
-        # Action Buttons Right (icon-only)
+        # Action Buttons (icon-only)
         action_col = row_cols[7]
         c1, c2, c3, c4 = action_col.columns(4)
         if c1.button("✏️", key=f"edit{i}"):
@@ -178,7 +180,7 @@ def tasks_page():
             save_users(users)
             st.rerun()
 
-    # Edit Task Modal
+    # Edit Modal
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         t = tasks[idx]
