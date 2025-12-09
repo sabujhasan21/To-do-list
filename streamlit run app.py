@@ -130,8 +130,7 @@ def display_tasks(tasks):
         st.warning("No tasks found.")
         return
 
-    # Track rerun requirement
-    rerun_needed = False
+    rerun_needed = False  # Flag to rerun once at the end
 
     for i, t in enumerate(tasks):
         priority_color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t.get("Priority", "Low"), "black")
@@ -170,7 +169,7 @@ def display_tasks(tasks):
 
         st.markdown("<hr>", unsafe_allow_html=True)
 
-    # Edit task form
+    # Edit form
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         t = tasks[idx]
@@ -197,7 +196,7 @@ def display_tasks(tasks):
             st.session_state.edit_index = None
             rerun_needed = True
 
-    # Rerun once at end if needed
+    # Rerun once at end if any button was clicked
     if rerun_needed or st.session_state.get("rerun_flag", False):
         st.session_state.rerun_flag = False
         st.experimental_rerun()
