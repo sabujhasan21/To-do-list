@@ -56,10 +56,11 @@ def set_background():
         """
         <style>
         body { background-color: #f5f5f5; color: #111; }
-        .stButton>button { background-color: #1976D2; color: white; }
+        .stButton>button { background-color: #1976D2; color: white; border-radius:5px; }
         .stTextInput>div>input, .stTextArea>div>textarea, .stDateInput>div>input {
-            background-color: white; color: #111;
+            background-color: white; color: #111; border-radius:5px; padding:3px;
         }
+        .stSidebar { background-color: #e6e6e6; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -74,6 +75,7 @@ def dark_mode_toggle():
             <style>
             body { background-color: #111 !important; color: white !important; }
             .stButton>button { background-color: #444 !important; color: white !important; }
+            .stSidebar { background-color: #333 !important; color: white !important; }
             </style>
             """,
             unsafe_allow_html=True,
@@ -229,37 +231,44 @@ def charts_page():
         st.warning("No tasks yet.")
         return
 
-    # Yearly chart
+    # Yearly chart (compact)
     yearly_counts = {}
     for t in tasks:
         y = date.fromisoformat(t["Start"]).year
         yearly_counts[y] = yearly_counts.get(y, 0) + 1
 
-    fig, ax = plt.subplots(figsize=(4, 2))  # compact size
+    fig, ax = plt.subplots(figsize=(3, 1.5))  # very compact
     ax.bar(yearly_counts.keys(), yearly_counts.values(), color="skyblue")
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Tasks")
-    ax.set_title("Tasks per Year")
+    ax.set_xlabel("Year", fontsize=8)
+    ax.set_ylabel("Tasks", fontsize=8)
+    ax.set_title("Tasks per Year", fontsize=10)
+    ax.tick_params(axis='x', labelrotation=45, labelsize=8)
+    ax.tick_params(axis='y', labelsize=8)
     st.pyplot(fig)
 
-    # Year select for drill-down
-    selected_year = st.selectbox("Select Year to see monthly breakdown", sorted(yearly_counts.keys(), reverse=True))
+    # Select Year for drill-down
+    selected_year = st.selectbox("Select Year for monthly breakdown", sorted(yearly_counts.keys(), reverse=True))
 
+    # Monthly chart (compact)
     monthly_counts = {m: 0 for m in range(1, 13)}
     for t in tasks:
         if date.fromisoformat(t["Start"]).year == selected_year:
             m = date.fromisoformat(t["Start"]).month
             monthly_counts[m] += 1
 
-    fig2, ax2 = plt.subplots(figsize=(6, 2))  # compact size
+    fig2, ax2 = plt.subplots(figsize=(4, 1.5))  # very compact
     ax2.bar([date(1900, m, 1).strftime("%b") for m in monthly_counts.keys()], monthly_counts.values(), color="orange")
-    ax2.set_title(f"Tasks per Month in {selected_year}")
+    ax2.set_title(f"Tasks per Month in {selected_year}", fontsize=10)
+    ax2.tick_params(axis='x', labelsize=8)
+    ax2.tick_params(axis='y', labelsize=8)
     st.pyplot(fig2)
 
-    # Optional: click a month to see tasks (simulate with selectbox)
-    selected_month = st.selectbox("Select Month to view tasks", [m for m, c in monthly_counts.items() if c > 0], format_func=lambda x: date(1900, x, 1).strftime("%B"))
-    filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
-    display_tasks_table(filtered_tasks)
+    # Month select to see tasks
+    months_with_tasks = [m for m, c in monthly_counts.items() if c > 0]
+    if months_with_tasks:
+        selected_month = st.selectbox("Select Month to view tasks", months_with_tasks, format_func=lambda x: date(1900, x, 1).strftime("%B"))
+        filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
+        display_tasks_table(filtered_tasks)
 
 
 # ------------------ CSV PAGE ------------------
