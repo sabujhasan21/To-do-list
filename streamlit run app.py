@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Advanced To-Do Manager", layout="wide")
 
-# ------------------ USERS FILE ------------------
 USERS_FILE = "users.json"
 
+# ------------------ USERS FILE ------------------
 if not os.path.exists(USERS_FILE):
     users = {
         "sabuj2025": {"password": "sabuj", "tasks": []}
@@ -83,11 +83,20 @@ def tasks_page():
     desc = st.text_area("Description")
     start = st.date_input("Start Date", date.today())
     end = st.date_input("End Date", date.today())
+    priority = st.selectbox("Priority", ["High", "Medium", "Low"])
+    assigned_by = st.text_input("Assigned By", "")
 
     if st.button("Save Task"):
         if title:
-            tasks.append({"Task": title, "Description": desc,
-                          "Start": str(start), "End": str(end), "Status": "Pending"})
+            tasks.append({
+                "Task": title,
+                "Description": desc,
+                "Start": str(start),
+                "End": str(end),
+                "Status": "Pending",
+                "Priority": priority,
+                "AssignedBy": assigned_by
+            })
             users[username]["tasks"] = tasks
             save_users(users)
             st.success("Task added successfully!")
@@ -97,17 +106,23 @@ def tasks_page():
 
     st.markdown("---")
     st.subheader("📋 Your Tasks")
+
+    # Sort tasks
     tasks = sorted(tasks, key=lambda x: x["End"])
     users[username]["tasks"] = tasks
     save_users(users)
 
+    # Show Tasks
     for i, t in enumerate(tasks):
-        st.markdown(f"### {t['Task']}")
+        # Priority color
+        color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t.get("Priority", "Low"), "blue")
+        st.markdown(f"### {t['Task']}  <span style='color:{color}'>({t.get('Priority','Low')})</span>", unsafe_allow_html=True)
         st.write(f"📖 {t['Description']}")
         st.write(f"📅 {t['Start']} ➜ {t['End']}")
-        st.write(f"Status: **{t['Status']}**")
-        c1, c2, c3 = st.columns(3)
+        st.write(f"Status: **{t['Status']}** | Assigned By: {t.get('AssignedBy','')}")
 
+        # Buttons Right side
+        c1, c2, c3, c4 = st.columns([1,1,1,1])
         if c1.button(f"Edit {i}"):
             st.session_state.edit_index = i
         if c2.button(f"Delete {i}"):
@@ -117,6 +132,11 @@ def tasks_page():
             st.rerun()
         if c3.button(f"Complete {i}"):
             tasks[i]["Status"] = "Completed"
+            users[username]["tasks"] = tasks
+            save_users(users)
+            st.rerun()
+        if c4.button(f"Running {i}"):
+            tasks[i]["Status"] = "Running"
             users[username]["tasks"] = tasks
             save_users(users)
             st.rerun()
@@ -132,10 +152,19 @@ def tasks_page():
         new_desc = st.text_area("Description", t["Description"])
         new_start = st.date_input("Start Date", date.fromisoformat(t["Start"]))
         new_end = st.date_input("End Date", date.fromisoformat(t["End"]))
+        new_priority = st.selectbox("Priority", ["High", "Medium", "Low"], index=["High","Medium","Low"].index(t.get("Priority","Low")))
+        new_assigned_by = st.text_input("Assigned By", t.get("AssignedBy",""))
 
         if st.button("Save Changes"):
-            tasks[idx] = {"Task": new_title, "Description": new_desc,
-                          "Start": str(new_start), "End": str(new_end), "Status": t["Status"]}
+            tasks[idx] = {
+                "Task": new_title,
+                "Description": new_desc,
+                "Start": str(new_start),
+                "End": str(new_end),
+                "Status": t["Status"],
+                "Priority": new_priority,
+                "AssignedBy": new_assigned_by
+            }
             users[username]["tasks"] = tasks
             save_users(users)
             st.session_state.edit_index = None
@@ -143,7 +172,7 @@ def tasks_page():
             st.rerun()
 
 
-# ------------------ PASSWORD CHANGE PAGE ------------------
+# ------------------ PASSWORD PAGE ------------------
 def password_page():
     st.title("🔑 Change Password")
     users = load_users()
@@ -164,7 +193,7 @@ def password_page():
             st.success("Password updated successfully!")
 
 
-# ------------------ DASHBOARD PAGE ------------------
+# ------------------ DASHBOARD ------------------
 def dashboard_page():
     st.title("📊 Task Dashboard")
     users = load_users()
@@ -177,7 +206,7 @@ def dashboard_page():
         df = pd.DataFrame(tasks)
         counts = df["Status"].value_counts()
         if len(counts) > 0:
-            fig, ax = plt.subplots(figsize=(4, 4))  # smaller pie chart
+            fig, ax = plt.subplots(figsize=(4,4))
             ax.pie(counts.values, labels=counts.index, autopct="%1.1f%%")
             ax.set_title("Task Status Distribution")
             st.pyplot(fig)
@@ -185,13 +214,12 @@ def dashboard_page():
             st.warning("Not enough data for chart.")
 
 
-# ------------------ CSV DOWNLOAD PAGE ------------------
+# ------------------ CSV PAGE ------------------
 def csv_page():
     st.title("⬇ Download Tasks as CSV")
     users = load_users()
     username = st.session_state.user
     tasks = users[username]["tasks"]
-
     if len(tasks) > 0:
         df = pd.DataFrame(tasks)
         st.download_button("Download CSV", df.to_csv(index=False), "tasks.csv")
@@ -206,11 +234,9 @@ if "logged_in" not in st.session_state:
 if not st.session_state.logged_in:
     login_page()
 else:
-    # Sidebar
     dark_mode_toggle()
     logout_button()
     menu = st.sidebar.radio("Pages", ["Tasks", "Dashboard", "Password Change", "CSV Download"])
-
     if menu == "Tasks":
         tasks_page()
     elif menu == "Dashboard":
