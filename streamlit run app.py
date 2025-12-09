@@ -84,7 +84,6 @@ def logout_button():
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.session_state.user = None
-        st.session_state.update_flag = True
 
 
 # ------------------ TASKS ------------------
@@ -114,7 +113,6 @@ def add_task(tasks):
                 users[st.session_state.user]["tasks"] = tasks
                 save_users(users)
                 st.success("Task added successfully!")
-                st.session_state.update_flag = True
             else:
                 st.error("Task title required.")
 
@@ -146,22 +144,18 @@ def display_tasks(tasks):
         c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
         if c1.button("✏️ Edit", key=f"edit{i}"):
             st.session_state.edit_index = i
-            st.session_state.update_flag = True
         if c2.button("🗑️ Delete", key=f"del{i}"):
             tasks.pop(i)
             users[username]["tasks"] = tasks
             save_users(users)
-            st.session_state.update_flag = True
         if c3.button("✅ Complete", key=f"comp{i}"):
             tasks[i]["Status"] = "Completed"
             users[username]["tasks"] = tasks
             save_users(users)
-            st.session_state.update_flag = True
         if c4.button("🏃 Running", key=f"run{i}"):
             tasks[i]["Status"] = "Running"
             users[username]["tasks"] = tasks
             save_users(users)
-            st.session_state.update_flag = True
 
     # Edit task form
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
@@ -188,7 +182,6 @@ def display_tasks(tasks):
             users[username]["tasks"] = tasks
             save_users(users)
             st.session_state.edit_index = None
-            st.session_state.update_flag = True
 
 
 # ------------------ TASKS PAGE ------------------
@@ -202,8 +195,15 @@ def tasks_page():
 
     add_task(tasks)
     st.markdown("---")
-    st.subheader("Your Tasks")
-    display_tasks(tasks)
+
+    pending_tasks = [t for t in tasks if t["Status"] != "Completed"]
+    completed_tasks = [t for t in tasks if t["Status"] == "Completed"]
+
+    st.subheader("📝 Pending Tasks")
+    display_tasks(pending_tasks)
+
+    st.subheader("✅ Completed Tasks")
+    display_tasks(completed_tasks)
 
 
 # ------------------ CSV PAGE ------------------
@@ -258,9 +258,6 @@ def password_page():
 # ------------------ RUN APP ------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-
-if "update_flag" not in st.session_state:
-    st.session_state.update_flag = False
 
 if not st.session_state.logged_in:
     login_page()
