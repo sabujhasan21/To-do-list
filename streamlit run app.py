@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, datetime
+from datetime import date
 import json
 import os
 import matplotlib.pyplot as plt
@@ -28,7 +28,7 @@ def save_users(users):
         json.dump(users, f, indent=4)
 
 
-# ------------------ LOGIN PAGE ------------------
+# ------------------ LOGIN ------------------
 def login_page():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
@@ -50,7 +50,7 @@ def login_page():
     st.info("Default → Username: sabuj2025 | Password: sabuj")
 
 
-# ------------------ WORK-STYLE BACKGROUND ------------------
+# ------------------ BACKGROUND ------------------
 def set_background():
     st.markdown(
         """
@@ -66,7 +66,6 @@ def set_background():
     )
 
 
-# ------------------ DARK MODE ------------------
 def dark_mode_toggle():
     dark = st.sidebar.checkbox("🌙 Dark Mode", value=False)
     if dark:
@@ -89,24 +88,21 @@ def logout_button():
         st.rerun()
 
 
-# ------------------ DISPLAY TASKS TABLE ------------------
+# ------------------ DISPLAY TASK TABLE ------------------
 def display_tasks_table(tasks):
     if len(tasks) == 0:
         st.warning("No tasks found.")
         return
 
-    # Table Header
     header_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
     headers = ["Task", "Description", "Start", "End", "Status", "Priority", "Assigned By", "Actions"]
     for col, h in zip(header_cols, headers):
         col.markdown(f"**{h}**")
-
     st.markdown("---")
 
     users = load_users()
     username = st.session_state.user
 
-    # Display Rows
     for i, t in enumerate(tasks):
         row_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
         row_cols[0].write(t["Task"])
@@ -114,17 +110,14 @@ def display_tasks_table(tasks):
         row_cols[2].write(t["Start"])
         row_cols[3].write(t["End"])
 
-        # Status color
         status_color = {"Pending": "orange", "Running": "blue", "Completed": "green", "Overdue": "red"}.get(t["Status"], "black")
         row_cols[4].markdown(f"<span style='color:{status_color};'><b>{t['Status']}</b></span>", unsafe_allow_html=True)
 
-        # Priority color
         priority_color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t["Priority"], "black")
         row_cols[5].markdown(f"<span style='color:{priority_color};'><b>{t['Priority']}</b></span>", unsafe_allow_html=True)
 
         row_cols[6].write(t.get("AssignedBy", ""))
 
-        # Action Buttons
         action_col = row_cols[7]
         c1, c2, c3, c4 = action_col.columns(4)
         if c1.button("✏️", key=f"edit{i}"):
@@ -145,7 +138,6 @@ def display_tasks_table(tasks):
             save_users(users)
             st.rerun()
 
-    # Edit Modal
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         t = tasks[idx]
@@ -182,7 +174,6 @@ def tasks_page():
     username = st.session_state.user
     tasks = users[username]["tasks"]
 
-    # ---------------- Add Task Form ----------------
     st.subheader("➕ Add New Task")
     with st.form("add_task_form"):
         title = st.text_input("Task Title")
@@ -213,45 +204,89 @@ def tasks_page():
 
     st.markdown("---")
 
-    # ---------------- Year + Month Filter ----------------
+    # Filter by Year + Month
     st.subheader("Filter Tasks by Year and Month")
     years = sorted(list({date.fromisoformat(t["Start"]).year for t in tasks}), reverse=True)
-    if not years:
-        st.warning("No tasks available.")
+    if years:
+        selected_year = st.selectbox("Year", years)
+        months = sorted(list({date.fromisoformat(t["Start"]).month for t in tasks if date.fromisoformat(t["Start"]).year == selected_year}))
+        selected_month = st.selectbox("Month", months, format_func=lambda x: date(1900, x, 1).strftime("%B"))
+        filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
+        display_tasks_table(filtered_tasks)
+    else:
+        st.warning("No tasks yet.")
+
+
+# ------------------ CHARTS PAGE ------------------
+def charts_page():
+    set_background()
+    st.title("📊 Task Charts")
+    users = load_users()
+    username = st.session_state.user
+    tasks = users[username]["tasks"]
+
+    if not tasks:
+        st.warning("No tasks yet.")
         return
-    selected_year = st.selectbox("Select Year", years)
-    months = sorted(list({date.fromisoformat(t["Start"]).month for t in tasks if date.fromisoformat(t["Start"]).year == selected_year}))
-    selected_month = st.selectbox("Select Month", months, format_func=lambda x: date(1900, x, 1).strftime("%B"))
 
-    filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
-
-    # ---------------- Yearly Chart ----------------
-    st.subheader("📊 Tasks Created per Year")
+    # Yearly chart
     yearly_counts = {}
     for t in tasks:
         y = date.fromisoformat(t["Start"]).year
         yearly_counts[y] = yearly_counts.get(y, 0) + 1
-    fig, ax = plt.subplots(figsize=(6, 3))
+
+    fig, ax = plt.subplots(figsize=(4, 2))  # compact size
     ax.bar(yearly_counts.keys(), yearly_counts.values(), color="skyblue")
     ax.set_xlabel("Year")
-    ax.set_ylabel("Number of Tasks")
-    ax.set_title("Tasks Created per Year")
+    ax.set_ylabel("Tasks")
+    ax.set_title("Tasks per Year")
     st.pyplot(fig)
 
-    # Drill-down: monthly chart
-    st.subheader(f"📅 Tasks per Month in {selected_year}")
+    # Year select for drill-down
+    selected_year = st.selectbox("Select Year to see monthly breakdown", sorted(yearly_counts.keys(), reverse=True))
+
     monthly_counts = {m: 0 for m in range(1, 13)}
     for t in tasks:
         if date.fromisoformat(t["Start"]).year == selected_year:
             m = date.fromisoformat(t["Start"]).month
             monthly_counts[m] += 1
-    fig2, ax2 = plt.subplots(figsize=(6, 3))
+
+    fig2, ax2 = plt.subplots(figsize=(6, 2))  # compact size
     ax2.bar([date(1900, m, 1).strftime("%b") for m in monthly_counts.keys()], monthly_counts.values(), color="orange")
     ax2.set_title(f"Tasks per Month in {selected_year}")
     st.pyplot(fig2)
 
-    # Display filtered tasks in table
+    # Optional: click a month to see tasks (simulate with selectbox)
+    selected_month = st.selectbox("Select Month to view tasks", [m for m, c in monthly_counts.items() if c > 0], format_func=lambda x: date(1900, x, 1).strftime("%B"))
+    filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
     display_tasks_table(filtered_tasks)
+
+
+# ------------------ CSV PAGE ------------------
+def csv_page():
+    set_background()
+    st.title("⬇ Download Tasks as CSV")
+    users = load_users()
+    username = st.session_state.user
+    tasks = users[username]["tasks"]
+
+    if len(tasks) == 0:
+        st.warning("No tasks to download.")
+        return
+
+    st.subheader("Select Date Range")
+    start_date = st.date_input("Start Date", date.today())
+    end_date = st.date_input("End Date", date.today())
+
+    filtered_tasks = [t for t in tasks if start_date <= date.fromisoformat(t["Start"]) <= end_date]
+
+    if len(filtered_tasks) == 0:
+        st.warning("No tasks in this date range.")
+        return
+
+    df = pd.DataFrame(filtered_tasks)
+    csv_data = df.to_csv(index=False)
+    st.download_button("Download CSV", csv_data, f"tasks_{start_date}_to_{end_date}.csv")
 
 
 # ------------------ PASSWORD PAGE ------------------
@@ -289,40 +324,10 @@ def dashboard_page():
     else:
         df = pd.DataFrame(tasks)
         counts = df["Status"].value_counts()
-        if len(counts) > 0:
-            fig, ax = plt.subplots(figsize=(4, 4))
-            ax.pie(counts.values, labels=counts.index, autopct="%1.1f%%")
-            ax.set_title("Task Status Distribution")
-            st.pyplot(fig)
-        else:
-            st.warning("Not enough data for chart.")
-
-
-# ------------------ CSV DOWNLOAD ------------------
-def csv_page():
-    set_background()
-    st.title("⬇ Download Tasks as CSV")
-    users = load_users()
-    username = st.session_state.user
-    tasks = users[username]["tasks"]
-
-    if len(tasks) == 0:
-        st.warning("No tasks to download.")
-        return
-
-    st.subheader("Select Date Range")
-    start_date = st.date_input("Start Date", date.today())
-    end_date = st.date_input("End Date", date.today())
-
-    filtered_tasks = [t for t in tasks if start_date <= date.fromisoformat(t["Start"]) <= end_date]
-
-    if len(filtered_tasks) == 0:
-        st.warning("No tasks in this date range.")
-        return
-
-    df = pd.DataFrame(filtered_tasks)
-    csv_data = df.to_csv(index=False)
-    st.download_button("Download CSV", csv_data, f"tasks_{start_date}_to_{end_date}.csv")
+        fig, ax = plt.subplots(figsize=(4, 4))
+        ax.pie(counts.values, labels=counts.index, autopct="%1.1f%%")
+        ax.set_title("Task Status Distribution")
+        st.pyplot(fig)
 
 
 # ------------------ RUN APP ------------------
@@ -334,9 +339,11 @@ if not st.session_state.logged_in:
 else:
     dark_mode_toggle()
     logout_button()
-    menu = st.sidebar.radio("Pages", ["Tasks", "Dashboard", "Password Change", "CSV Download"])
+    menu = st.sidebar.radio("Pages", ["Tasks", "Charts", "Dashboard", "Password Change", "CSV Download"])
     if menu == "Tasks":
         tasks_page()
+    elif menu == "Charts":
+        charts_page()
     elif menu == "Dashboard":
         dashboard_page()
     elif menu == "Password Change":
