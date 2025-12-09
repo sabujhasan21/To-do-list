@@ -29,6 +29,11 @@ if st.button("Add Task"):
         st.error("Please enter a task title.")
 
 # Show tasks
+st.subheader("Mark Tasks as Completed")
+for i, t in enumerate(st.session_state.tasks):
+    if st.button(f"Complete: {t['Task']}"):
+        st.session_state.tasks[i]["Completed"] = True
+        st.success(f"Task '{t['Task']}' marked as completed!")
 tasks_df = pd.DataFrame(st.session_state.tasks)
 
 st.subheader("Your To‑Do List")
