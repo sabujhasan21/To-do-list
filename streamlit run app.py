@@ -1,50 +1,51 @@
 import streamlit as st
 import pandas as pd
-import json
 from datetime import date
-import matplotlib.pyplot as plt
+import json
 import os
+import matplotlib.pyplot as plt
 
+st.set_page_config(page_title="Advanced To-Do Manager", layout="wide")
 
-# ----------------------------- USER DATABASE -----------------------------
-USER_DB = "users.json"
+# ------------------ USERS FILE ------------------
+USERS_FILE = "users.json"
 
-if not os.path.exists(USER_DB):
+# Create default users file if not exists
+if not os.path.exists(USERS_FILE):
     users = {
-        "sabuj2025": {
-            "password": "sabuj",
-            "tasks": []
-        }
+        "sabuj2025": {"password": "sabuj", "tasks": []}
     }
-    with open(USER_DB, "w") as f:
+    with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=4)
 
 
 def load_users():
-    with open(USER_DB, "r") as f:
+    with open(USERS_FILE, "r") as f:
         return json.load(f)
 
 
-def save_users(data):
-    with open(USER_DB, "w") as f:
-        json.dump(data, f, indent=4)
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=4)
 
 
-# ----------------------------- LOGIN SYSTEM -----------------------------
+# ------------------ LOGIN ------------------
 def login_page():
-    st.title("🔐 Login")
-
+    st.title("🔐 Login Required")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
         users = load_users()
-
         if username in users and users[username]["password"] == password:
             st.session_state.logged_in = True
             st.session_state.user = username
+            # Ensure tasks key exists
+            if "tasks" not in users[username]:
+                users[username]["tasks"] = []
+                save_users(users)
             st.success("Login successful!")
-            st.rerun()                     # FIXED
+            st.rerun()
         else:
             st.error("Invalid username or password")
 
@@ -52,13 +53,13 @@ def login_page():
 
 
 def logout_button():
-    if st.button("Logout"):
+    if st.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.session_state.user = None
-        st.rerun()                         # FIXED
+        st.rerun()
 
 
-# ----------------------------- DARK MODE -----------------------------
+# ------------------ DARK MODE ------------------
 def dark_mode():
     dark = st.checkbox("🌙 Dark Mode", value=False)
     if dark:
@@ -70,32 +71,42 @@ def dark_mode():
         """, unsafe_allow_html=True)
 
 
-# ----------------------------- MAIN TODO APP -----------------------------
+# ------------------ MAIN APP ------------------
 def todo_app():
     st.title("📝 Advanced To-Do Manager")
     logout_button()
     dark_mode()
-
     st.write(f"👤 Logged in as: **{st.session_state.user}**")
 
     users = load_users()
-    tasks = users[st.session_state.user]["tasks"]
+    username = st.session_state.user
 
-    # --------------------- PASSWORD CHANGE ---------------------
+    if username not in users:
+        st.error("User not found! Please login again.")
+        st.session_state.logged_in = False
+        st.session_state.user = None
+        st.rerun()
+
+    if "tasks" not in users[username]:
+        users[username]["tasks"] = []
+        save_users(users)
+
+    tasks = users[username]["tasks"]
+
+    # ------------------ PASSWORD CHANGE ------------------
     with st.expander("🔒 Change Password"):
         old = st.text_input("Old Password", type="password")
         new = st.text_input("New Password", type="password")
         if st.button("Update Password"):
-            if old == users[st.session_state.user]["password"]:
-                users[st.session_state.user]["password"] = new
+            if old == users[username]["password"]:
+                users[username]["password"] = new
                 save_users(users)
                 st.success("Password changed!")
             else:
                 st.error("Old password incorrect")
 
-    # --------------------- ADD TASK ---------------------
+    # ------------------ ADD TASK ------------------
     st.subheader("➕ Add New Task")
-
     title = st.text_input("Task Title")
     desc = st.text_area("Description")
     start = st.date_input("Start Date", date.today())
@@ -111,22 +122,22 @@ def todo_app():
                 "Status": "Pending"
             }
             tasks.append(new_task)
-            users[st.session_state.user]["tasks"] = tasks
+            users[username]["tasks"] = tasks
             save_users(users)
             st.success("Task added successfully!")
-            st.rerun()                     # FIXED
+            st.rerun()
         else:
             st.error("Task title required.")
 
     st.markdown("---")
     st.subheader("📋 Your Tasks")
 
-    # Sort tasks
+    # Sort tasks by End date
     tasks = sorted(tasks, key=lambda x: x["End"])
-    users[st.session_state.user]["tasks"] = tasks
+    users[username]["tasks"] = tasks
     save_users(users)
 
-    # ---------------- SHOW TASKS ----------------
+    # ------------------ SHOW TASKS ------------------
     for i, t in enumerate(tasks):
         st.markdown(f"### {t['Task']}")
         st.write(f"📖 {t['Description']}")
@@ -140,19 +151,19 @@ def todo_app():
 
         if c2.button(f"Delete {i}"):
             tasks.pop(i)
-            users[st.session_state.user]["tasks"] = tasks
+            users[username]["tasks"] = tasks
             save_users(users)
-            st.rerun()                     # FIXED
+            st.rerun()
 
         if c3.button(f"Complete {i}"):
             tasks[i]["Status"] = "Completed"
-            users[st.session_state.user]["tasks"] = tasks
+            users[username]["tasks"] = tasks
             save_users(users)
-            st.rerun()                     # FIXED
+            st.rerun()
 
         st.markdown("---")
 
-    # ---------------- EDIT TASK ----------------
+    # ------------------ EDIT TASK ------------------
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         st.subheader("✏️ Edit Task")
@@ -172,18 +183,17 @@ def todo_app():
                 "End": str(new_end),
                 "Status": t["Status"]
             }
-            users[st.session_state.user]["tasks"] = tasks
+            users[username]["tasks"] = tasks
             save_users(users)
 
             st.session_state.edit_index = None
             st.success("Task updated!")
-            st.rerun()                     # FIXED
+            st.rerun()
 
     st.markdown("---")
 
-    # ---------------- PIE CHART ----------------
+    # ------------------ PIE CHART ------------------
     st.subheader("📊 Task Dashboard")
-
     if len(tasks) == 0:
         st.warning("No tasks available for chart.")
     else:
@@ -198,13 +208,13 @@ def todo_app():
         else:
             st.warning("Not enough data for chart.")
 
-    # ---------------- CSV DOWNLOAD ----------------
+    # ------------------ CSV DOWNLOAD ------------------
     if len(tasks) > 0:
         df = pd.DataFrame(tasks)
         st.download_button("⬇ Download CSV", df.to_csv(index=False), "tasks.csv")
 
 
-# ----------------------------- APP RUN -----------------------------
+# ------------------ RUN APP ------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
