@@ -35,10 +35,6 @@ def login_page():
         if username in users and users[username]["password"] == password:
             st.session_state.logged_in = True
             st.session_state.user = username
-            if "tasks" not in users[username]:
-                users[username]["tasks"] = []
-                save_users(users)
-            st.experimental_rerun()
         else:
             st.error("Invalid username or password")
 
@@ -88,7 +84,6 @@ def logout_button():
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.session_state.user = None
-        st.experimental_rerun()
 
 
 # ------------------ TASKS ------------------
@@ -117,7 +112,7 @@ def add_task(tasks):
                 users = load_users()
                 users[st.session_state.user]["tasks"] = tasks
                 save_users(users)
-                st.session_state.rerun_flag = True
+                st.success("Task added successfully!")
             else:
                 st.error("Task title required.")
 
@@ -129,8 +124,6 @@ def display_tasks(tasks):
     if len(tasks) == 0:
         st.warning("No tasks found.")
         return
-
-    rerun_needed = False  # Flag to rerun once at the end
 
     for i, t in enumerate(tasks):
         priority_color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t.get("Priority", "Low"), "black")
@@ -155,21 +148,19 @@ def display_tasks(tasks):
             tasks.pop(i)
             users[username]["tasks"] = tasks
             save_users(users)
-            rerun_needed = True
+            st.experimental_rerun()
         if c3.button("✅ Complete", key=f"comp{i}"):
             tasks[i]["Status"] = "Completed"
             users[username]["tasks"] = tasks
             save_users(users)
-            rerun_needed = True
+            st.experimental_rerun()
         if c4.button("🏃 Running", key=f"run{i}"):
             tasks[i]["Status"] = "Running"
             users[username]["tasks"] = tasks
             save_users(users)
-            rerun_needed = True
+            st.experimental_rerun()
 
-        st.markdown("<hr>", unsafe_allow_html=True)
-
-    # Edit form
+    # Edit task form
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         t = tasks[idx]
@@ -194,12 +185,7 @@ def display_tasks(tasks):
             users[username]["tasks"] = tasks
             save_users(users)
             st.session_state.edit_index = None
-            rerun_needed = True
-
-    # Rerun once at end if any button was clicked
-    if rerun_needed or st.session_state.get("rerun_flag", False):
-        st.session_state.rerun_flag = False
-        st.experimental_rerun()
+            st.experimental_rerun()
 
 
 # ------------------ TASKS PAGE ------------------
