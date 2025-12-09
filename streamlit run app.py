@@ -117,7 +117,6 @@ def add_task(tasks):
                 users = load_users()
                 users[st.session_state.user]["tasks"] = tasks
                 save_users(users)
-                st.success("Task added successfully!")
                 st.session_state.rerun_flag = True
             else:
                 st.error("Task title required.")
@@ -131,6 +130,7 @@ def display_tasks(tasks):
         st.warning("No tasks found.")
         return
 
+    # Track rerun requirement
     rerun_needed = False
 
     for i, t in enumerate(tasks):
@@ -197,6 +197,7 @@ def display_tasks(tasks):
             st.session_state.edit_index = None
             rerun_needed = True
 
+    # Rerun once at end if needed
     if rerun_needed or st.session_state.get("rerun_flag", False):
         st.session_state.rerun_flag = False
         st.experimental_rerun()
@@ -212,9 +213,7 @@ def tasks_page():
     tasks = users[username]["tasks"]
 
     add_task(tasks)
-
     st.markdown("---")
-
     st.subheader("Your Tasks")
     display_tasks(tasks)
 
