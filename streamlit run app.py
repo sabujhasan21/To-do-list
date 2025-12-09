@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import date
 import json
 import os
-import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Advanced To-Do Manager", layout="wide")
 
@@ -140,6 +139,7 @@ def display_tasks_table(tasks):
             save_users(users)
             st.rerun()
 
+    # Edit task form
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         t = tasks[idx]
@@ -219,58 +219,6 @@ def tasks_page():
         st.warning("No tasks yet.")
 
 
-# ------------------ CHARTS PAGE ------------------
-def charts_page():
-    set_background()
-    st.title("📊 Task Charts")
-    users = load_users()
-    username = st.session_state.user
-    tasks = users[username]["tasks"]
-
-    if not tasks:
-        st.warning("No tasks yet.")
-        return
-
-    # Yearly chart (compact)
-    yearly_counts = {}
-    for t in tasks:
-        y = date.fromisoformat(t["Start"]).year
-        yearly_counts[y] = yearly_counts.get(y, 0) + 1
-
-    fig, ax = plt.subplots(figsize=(3, 1.5))  # very compact
-    ax.bar(yearly_counts.keys(), yearly_counts.values(), color="skyblue")
-    ax.set_xlabel("Year", fontsize=8)
-    ax.set_ylabel("Tasks", fontsize=8)
-    ax.set_title("Tasks per Year", fontsize=10)
-    ax.tick_params(axis='x', labelrotation=45, labelsize=8)
-    ax.tick_params(axis='y', labelsize=8)
-    st.pyplot(fig)
-
-    # Select Year for drill-down
-    selected_year = st.selectbox("Select Year for monthly breakdown", sorted(yearly_counts.keys(), reverse=True))
-
-    # Monthly chart (compact)
-    monthly_counts = {m: 0 for m in range(1, 13)}
-    for t in tasks:
-        if date.fromisoformat(t["Start"]).year == selected_year:
-            m = date.fromisoformat(t["Start"]).month
-            monthly_counts[m] += 1
-
-    fig2, ax2 = plt.subplots(figsize=(4, 1.5))  # very compact
-    ax2.bar([date(1900, m, 1).strftime("%b") for m in monthly_counts.keys()], monthly_counts.values(), color="orange")
-    ax2.set_title(f"Tasks per Month in {selected_year}", fontsize=10)
-    ax2.tick_params(axis='x', labelsize=8)
-    ax2.tick_params(axis='y', labelsize=8)
-    st.pyplot(fig2)
-
-    # Month select to see tasks
-    months_with_tasks = [m for m, c in monthly_counts.items() if c > 0]
-    if months_with_tasks:
-        selected_month = st.selectbox("Select Month to view tasks", months_with_tasks, format_func=lambda x: date(1900, x, 1).strftime("%B"))
-        filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
-        display_tasks_table(filtered_tasks)
-
-
 # ------------------ CSV PAGE ------------------
 def csv_page():
     set_background()
@@ -320,25 +268,6 @@ def password_page():
             st.success("Password updated successfully!")
 
 
-# ------------------ DASHBOARD ------------------
-def dashboard_page():
-    set_background()
-    st.title("📊 Task Dashboard")
-    users = load_users()
-    username = st.session_state.user
-    tasks = users[username]["tasks"]
-
-    if len(tasks) == 0:
-        st.warning("No tasks available for chart.")
-    else:
-        df = pd.DataFrame(tasks)
-        counts = df["Status"].value_counts()
-        fig, ax = plt.subplots(figsize=(4, 4))
-        ax.pie(counts.values, labels=counts.index, autopct="%1.1f%%")
-        ax.set_title("Task Status Distribution")
-        st.pyplot(fig)
-
-
 # ------------------ RUN APP ------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -348,14 +277,10 @@ if not st.session_state.logged_in:
 else:
     dark_mode_toggle()
     logout_button()
-    menu = st.sidebar.radio("Pages", ["Tasks", "Charts", "Dashboard", "Password Change", "CSV Download"])
+    menu = st.sidebar.radio("Pages", ["Tasks", "CSV Download", "Password Change"])
     if menu == "Tasks":
         tasks_page()
-    elif menu == "Charts":
-        charts_page()
-    elif menu == "Dashboard":
-        dashboard_page()
-    elif menu == "Password Change":
-        password_page()
     elif menu == "CSV Download":
         csv_page()
+    elif menu == "Password Change":
+        password_page()
