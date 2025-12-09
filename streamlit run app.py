@@ -70,59 +70,65 @@ def logout_button():
         st.rerun()
 
 
-# ------------------ TASKS PAGE ------------------
+# ------------------ TASKS PAGE (TABLE) ------------------
 def tasks_page():
     st.title("📝 Tasks")
     users = load_users()
     username = st.session_state.user
     tasks = users[username]["tasks"]
 
-    # Add Task
+    # Add Task (Always on Top)
     st.subheader("➕ Add New Task")
-    title = st.text_input("Task Title")
-    desc = st.text_area("Description")
-    start = st.date_input("Start Date", date.today())
-    end = st.date_input("End Date", date.today())
-    priority = st.selectbox("Priority", ["High", "Medium", "Low"])
-    assigned_by = st.text_input("Assigned By", "")
+    with st.form("add_task_form"):
+        title = st.text_input("Task Title")
+        desc = st.text_area("Description")
+        start = st.date_input("Start Date", date.today())
+        end = st.date_input("End Date", date.today())
+        priority = st.selectbox("Priority", ["High", "Medium", "Low"])
+        assigned_by = st.text_input("Assigned By", "")
+        submitted = st.form_submit_button("Save Task")
 
-    if st.button("Save Task"):
-        if title:
-            tasks.append({
-                "Task": title,
-                "Description": desc,
-                "Start": str(start),
-                "End": str(end),
-                "Status": "Pending",
-                "Priority": priority,
-                "AssignedBy": assigned_by
-            })
-            users[username]["tasks"] = tasks
-            save_users(users)
-            st.success("Task added successfully!")
-            st.rerun()
-        else:
-            st.error("Task title required.")
+        if submitted:
+            if title:
+                new_task = {
+                    "Task": title,
+                    "Description": desc,
+                    "Start": str(start),
+                    "End": str(end),
+                    "Status": "Pending",
+                    "Priority": priority,
+                    "AssignedBy": assigned_by
+                }
+                tasks.insert(0, new_task)  # new task on top
+                users[username]["tasks"] = tasks
+                save_users(users)
+                st.success("Task added successfully!")
+                st.rerun()
+            else:
+                st.error("Task title required.")
 
     st.markdown("---")
-    st.subheader("📋 Your Tasks")
+    st.subheader("📋 All Tasks")
 
-    # Sort tasks
-    tasks = sorted(tasks, key=lambda x: x["End"])
-    users[username]["tasks"] = tasks
-    save_users(users)
+    # Table view
+    if len(tasks) == 0:
+        st.warning("No tasks found.")
+        return
 
-    # Show Tasks
+    df = pd.DataFrame(tasks)
+    df_display = df.copy()
+
+    # Priority color-coded
+    def color_priority(val):
+        color_map = {"High": "red", "Medium": "orange", "Low": "green"}
+        return f"color: {color_map.get(val,'blue')}"
+
+    # Display table without action buttons
+    st.dataframe(df_display[["Task", "Description", "Start", "End", "Status", "Priority", "AssignedBy"]])
+
+    # Action buttons per row
     for i, t in enumerate(tasks):
-        # Priority color
-        color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t.get("Priority", "Low"), "blue")
-        st.markdown(f"### {t['Task']}  <span style='color:{color}'>({t.get('Priority','Low')})</span>", unsafe_allow_html=True)
-        st.write(f"📖 {t['Description']}")
-        st.write(f"📅 {t['Start']} ➜ {t['End']}")
-        st.write(f"Status: **{t['Status']}** | Assigned By: {t.get('AssignedBy','')}")
-
-        # Buttons Right side
-        c1, c2, c3, c4 = st.columns([1,1,1,1])
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
         if c1.button(f"Edit {i}"):
             st.session_state.edit_index = i
         if c2.button(f"Delete {i}"):
@@ -140,8 +146,6 @@ def tasks_page():
             users[username]["tasks"] = tasks
             save_users(users)
             st.rerun()
-
-        st.markdown("---")
 
     # Edit Task
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
