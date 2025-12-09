@@ -9,7 +9,6 @@ import os
 # ----------------------------- USER DATABASE -----------------------------
 USER_DB = "users.json"
 
-# Create users.json file if not exists
 if not os.path.exists(USER_DB):
     users = {
         "sabuj2025": {
@@ -45,18 +44,18 @@ def login_page():
             st.session_state.logged_in = True
             st.session_state.user = username
             st.success("Login successful!")
-            st.experimental_rerun()
+            st.rerun()                     # FIXED
         else:
             st.error("Invalid username or password")
 
-    st.info("Default user → **Username:** sabuj2025 | **Password:** sabuj")
+    st.info("Default → Username: sabuj2025 | Password: sabuj")
 
 
 def logout_button():
     if st.button("Logout"):
         st.session_state.logged_in = False
         st.session_state.user = None
-        st.experimental_rerun()
+        st.rerun()                         # FIXED
 
 
 # ----------------------------- DARK MODE -----------------------------
@@ -115,6 +114,7 @@ def todo_app():
             users[st.session_state.user]["tasks"] = tasks
             save_users(users)
             st.success("Task added successfully!")
+            st.rerun()                     # FIXED
         else:
             st.error("Task title required.")
 
@@ -123,12 +123,10 @@ def todo_app():
 
     # Sort tasks
     tasks = sorted(tasks, key=lambda x: x["End"])
-
-    # Save back sorted
     users[st.session_state.user]["tasks"] = tasks
     save_users(users)
 
-    # Display tasks
+    # ---------------- SHOW TASKS ----------------
     for i, t in enumerate(tasks):
         st.markdown(f"### {t['Task']}")
         st.write(f"📖 {t['Description']}")
@@ -144,17 +142,17 @@ def todo_app():
             tasks.pop(i)
             users[st.session_state.user]["tasks"] = tasks
             save_users(users)
-            st.experimental_rerun()
+            st.rerun()                     # FIXED
 
         if c3.button(f"Complete {i}"):
             tasks[i]["Status"] = "Completed"
             users[st.session_state.user]["tasks"] = tasks
             save_users(users)
-            st.experimental_rerun()
+            st.rerun()                     # FIXED
 
         st.markdown("---")
 
-    # --------------------- EDIT TASK ---------------------
+    # ---------------- EDIT TASK ----------------
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         st.subheader("✏️ Edit Task")
@@ -179,11 +177,11 @@ def todo_app():
 
             st.session_state.edit_index = None
             st.success("Task updated!")
-            st.experimental_rerun()
+            st.rerun()                     # FIXED
 
     st.markdown("---")
 
-    # --------------------- PIE CHART DASHBOARD ---------------------
+    # ---------------- PIE CHART ----------------
     st.subheader("📊 Task Dashboard")
 
     if len(tasks) == 0:
@@ -200,7 +198,7 @@ def todo_app():
         else:
             st.warning("Not enough data for chart.")
 
-    # --------------------- DOWNLOAD CSV ---------------------
+    # ---------------- CSV DOWNLOAD ----------------
     if len(tasks) > 0:
         df = pd.DataFrame(tasks)
         st.download_button("⬇ Download CSV", df.to_csv(index=False), "tasks.csv")
