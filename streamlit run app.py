@@ -10,9 +10,7 @@ USERS_FILE = "users.json"
 
 # ------------------ USERS FILE ------------------
 if not os.path.exists(USERS_FILE):
-    users = {
-        "sabuj2025": {"password": "sabuj", "tasks": []}
-    }
+    users = {"sabuj2025": {"password": "sabuj", "tasks": []}}
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=4)
 
@@ -32,7 +30,6 @@ def login_page():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
         users = load_users()
         if username in users and users[username]["password"] == password:
@@ -42,7 +39,7 @@ def login_page():
                 users[username]["tasks"] = []
                 save_users(users)
             st.success("Login successful!")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Invalid username or password")
 
@@ -63,14 +60,9 @@ def set_background():
         }
         .task-title { font-size:20px; font-weight:bold; }
         .task-desc { font-size:14px; color:#333; }
-        .task-info { font-size:13px; color:#555; }
-        .task-buttons button {
-            border-radius:5px;
-            padding:5px 8px;
-            margin-right:5px;
-            border:none;
-            cursor:pointer;
-            transition:0.3s;
+        .task-info { font-size:13px; color:#555; margin-top:5px; }
+        .button-container button {
+            border-radius:5px; padding:5px 8px; margin-right:5px; border:none; cursor:pointer; transition:0.3s;
         }
         .edit-btn { background-color:#1976D2; color:white;}
         .edit-btn:hover { background-color:#0D47A1;}
@@ -105,7 +97,7 @@ def logout_button():
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.session_state.user = None
-        st.rerun()
+        st.experimental_rerun()
 
 
 # ------------------ DISPLAY TASK CARDS ------------------
@@ -122,25 +114,37 @@ def display_tasks_cards(tasks):
         status_color = {"Pending": "orange", "Running": "blue", "Completed": "green", "Overdue": "red"}.get(t.get("Status", "Pending"), "black")
 
         st.markdown(
-            f"""
-            <div class="task-card">
-                <div class="task-title">{t['Task']}</div>
-                <div class="task-desc">{t['Description']}</div>
-                <div class="task-info">
-                    Start: {t['Start']} | End: {t['End']} | 
-                    Status: <span style='color:{status_color}'>{t['Status']}</span> |
-                    Priority: <span style='color:{priority_color}'>{t['Priority']}</span> |
-                    Assigned By: {t.get('AssignedBy','')}
-                </div>
-                <div class="task-buttons">
-                    <button class="edit-btn" onclick="window.location.reload();">✏️ Edit</button>
-                    <button class="delete-btn" onclick="window.location.reload();">🗑️ Delete</button>
-                    <button class="complete-btn" onclick="window.location.reload();">✅ Complete</button>
-                    <button class="running-btn" onclick="window.location.reload();">🏃 Running</button>
-                </div>
-            </div>
-            """, unsafe_allow_html=True
+            f"<div class='task-card'>"
+            f"<div class='task-title'>{t['Task']}</div>"
+            f"<div class='task-desc'>{t['Description']}</div>"
+            f"<div class='task-info'>Start: {t['Start']} | End: {t['End']} | "
+            f"Status: <span style='color:{status_color}'>{t['Status']}</span> | "
+            f"Priority: <span style='color:{priority_color}'>{t['Priority']}</span> | "
+            f"Assigned By: {t.get('AssignedBy','')}</div>",
+            unsafe_allow_html=True
         )
+
+        # Functional buttons using st columns
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+        if c1.button("✏️ Edit", key=f"edit{i}"):
+            st.session_state.edit_index = i
+        if c2.button("🗑️ Delete", key=f"del{i}"):
+            tasks.pop(i)
+            users[username]["tasks"] = tasks
+            save_users(users)
+            st.experimental_rerun()
+        if c3.button("✅ Complete", key=f"comp{i}"):
+            tasks[i]["Status"] = "Completed"
+            users[username]["tasks"] = tasks
+            save_users(users)
+            st.experimental_rerun()
+        if c4.button("🏃 Running", key=f"run{i}"):
+            tasks[i]["Status"] = "Running"
+            users[username]["tasks"] = tasks
+            save_users(users)
+            st.experimental_rerun()
+
+        st.markdown("<hr>", unsafe_allow_html=True)
 
 
 # ------------------ TASKS PAGE ------------------
@@ -175,7 +179,7 @@ def tasks_page():
                 users[username]["tasks"] = tasks
                 save_users(users)
                 st.success("Task added successfully!")
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error("Task title required.")
 
