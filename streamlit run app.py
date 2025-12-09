@@ -4,7 +4,7 @@ from datetime import date
 import json
 import os
 
-st.set_page_config(page_title="Advanced To-Do Manager", layout="wide")
+st.set_page_config(page_title="Daily To-Do List", layout="wide")
 
 USERS_FILE = "users.json"
 
@@ -46,23 +46,42 @@ def login_page():
         else:
             st.error("Invalid username or password")
 
-    st.info("Default → Username: sabuj2025 | Password: sabuj")
 
-
-# ------------------ BACKGROUND ------------------
+# ------------------ BACKGROUND & CSS ------------------
 def set_background():
     st.markdown(
         """
         <style>
         body { background-color: #f5f5f5; color: #111; }
-        .stButton>button { background-color: #1976D2; color: white; border-radius:5px; }
-        .stTextInput>div>input, .stTextArea>div>textarea, .stDateInput>div>input {
-            background-color: white; color: #111; border-radius:5px; padding:3px;
-        }
         .stSidebar { background-color: #e6e6e6; }
+        .task-card {
+            background-color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 2px 2px 5px #ccc;
+        }
+        .task-title { font-size:20px; font-weight:bold; }
+        .task-desc { font-size:14px; color:#333; }
+        .task-info { font-size:13px; color:#555; }
+        .task-buttons button {
+            border-radius:5px;
+            padding:5px 8px;
+            margin-right:5px;
+            border:none;
+            cursor:pointer;
+            transition:0.3s;
+        }
+        .edit-btn { background-color:#1976D2; color:white;}
+        .edit-btn:hover { background-color:#0D47A1;}
+        .delete-btn { background-color:#D32F2F; color:white;}
+        .delete-btn:hover { background-color:#B71C1C;}
+        .complete-btn { background-color:#388E3C; color:white;}
+        .complete-btn:hover { background-color:#1B5E20;}
+        .running-btn { background-color:#FBC02D; color:white;}
+        .running-btn:hover { background-color:#F57F17;}
         </style>
-        """,
-        unsafe_allow_html=True,
+        """, unsafe_allow_html=True
     )
 
 
@@ -73,7 +92,7 @@ def dark_mode_toggle():
             """
             <style>
             body { background-color: #111 !important; color: white !important; }
-            .stButton>button { background-color: #444 !important; color: white !important; }
+            .task-card { background-color: #222 !important; color:white; box-shadow:2px2px5px #000;}
             .stSidebar { background-color: #333 !important; color: white !important; }
             </style>
             """,
@@ -89,89 +108,45 @@ def logout_button():
         st.rerun()
 
 
-# ------------------ DISPLAY TASK TABLE ------------------
-def display_tasks_table(tasks):
+# ------------------ DISPLAY TASK CARDS ------------------
+def display_tasks_cards(tasks):
     if len(tasks) == 0:
         st.warning("No tasks found.")
         return
-
-    header_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
-    headers = ["Task", "Description", "Start", "End", "Status", "Priority", "Assigned By", "Actions"]
-    for col, h in zip(header_cols, headers):
-        col.markdown(f"**{h}**")
-    st.markdown("---")
 
     users = load_users()
     username = st.session_state.user
 
     for i, t in enumerate(tasks):
-        row_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
-        row_cols[0].write(t["Task"])
-        row_cols[1].write(t["Description"])
-        row_cols[2].write(t["Start"])
-        row_cols[3].write(t["End"])
+        priority_color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t.get("Priority", "Low"), "black")
+        status_color = {"Pending": "orange", "Running": "blue", "Completed": "green", "Overdue": "red"}.get(t.get("Status", "Pending"), "black")
 
-        status_color = {"Pending": "orange", "Running": "blue", "Completed": "green", "Overdue": "red"}.get(t["Status"], "black")
-        row_cols[4].markdown(f"<span style='color:{status_color};'><b>{t['Status']}</b></span>", unsafe_allow_html=True)
-
-        priority_color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t["Priority"], "black")
-        row_cols[5].markdown(f"<span style='color:{priority_color};'><b>{t['Priority']}</b></span>", unsafe_allow_html=True)
-
-        row_cols[6].write(t.get("AssignedBy", ""))
-
-        action_col = row_cols[7]
-        c1, c2, c3, c4 = action_col.columns(4)
-        if c1.button("✏️", key=f"edit{i}"):
-            st.session_state.edit_index = i
-        if c2.button("🗑️", key=f"del{i}"):
-            tasks.pop(i)
-            users[username]["tasks"] = tasks
-            save_users(users)
-            st.rerun()
-        if c3.button("✅", key=f"comp{i}"):
-            tasks[i]["Status"] = "Completed"
-            users[username]["tasks"] = tasks
-            save_users(users)
-            st.rerun()
-        if c4.button("🏃", key=f"run{i}"):
-            tasks[i]["Status"] = "Running"
-            users[username]["tasks"] = tasks
-            save_users(users)
-            st.rerun()
-
-    # Edit task form
-    if "edit_index" in st.session_state and st.session_state.edit_index is not None:
-        idx = st.session_state.edit_index
-        t = tasks[idx]
-        st.subheader("✏️ Edit Task")
-        new_title = st.text_input("Task Title", t["Task"])
-        new_desc = st.text_area("Description", t["Description"])
-        new_start = st.date_input("Start Date", date.fromisoformat(t["Start"]))
-        new_end = st.date_input("End Date", date.fromisoformat(t["End"]))
-        new_priority = st.selectbox("Priority", ["High", "Medium", "Low"], index=["High", "Medium", "Low"].index(t.get("Priority", "Low")))
-        new_assigned_by = st.text_input("Assigned By", t.get("AssignedBy", ""))
-
-        if st.button("Save Changes"):
-            tasks[idx] = {
-                "Task": new_title,
-                "Description": new_desc,
-                "Start": str(new_start),
-                "End": str(new_end),
-                "Status": t["Status"],
-                "Priority": new_priority,
-                "AssignedBy": new_assigned_by
-            }
-            users[username]["tasks"] = tasks
-            save_users(users)
-            st.session_state.edit_index = None
-            st.success("Task updated!")
-            st.rerun()
+        st.markdown(
+            f"""
+            <div class="task-card">
+                <div class="task-title">{t['Task']}</div>
+                <div class="task-desc">{t['Description']}</div>
+                <div class="task-info">
+                    Start: {t['Start']} | End: {t['End']} | 
+                    Status: <span style='color:{status_color}'>{t['Status']}</span> |
+                    Priority: <span style='color:{priority_color}'>{t['Priority']}</span> |
+                    Assigned By: {t.get('AssignedBy','')}
+                </div>
+                <div class="task-buttons">
+                    <button class="edit-btn" onclick="window.location.reload();">✏️ Edit</button>
+                    <button class="delete-btn" onclick="window.location.reload();">🗑️ Delete</button>
+                    <button class="complete-btn" onclick="window.location.reload();">✅ Complete</button>
+                    <button class="running-btn" onclick="window.location.reload();">🏃 Running</button>
+                </div>
+            </div>
+            """, unsafe_allow_html=True
+        )
 
 
 # ------------------ TASKS PAGE ------------------
 def tasks_page():
     set_background()
-    st.title("📝 Your Tasks")
+    st.title("📝 Daily To-Do List")
     users = load_users()
     username = st.session_state.user
     tasks = users[username]["tasks"]
@@ -214,7 +189,7 @@ def tasks_page():
         months = sorted(list({date.fromisoformat(t["Start"]).month for t in tasks if date.fromisoformat(t["Start"]).year == selected_year}))
         selected_month = st.selectbox("Month", months, format_func=lambda x: date(1900, x, 1).strftime("%B"))
         filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
-        display_tasks_table(filtered_tasks)
+        display_tasks_cards(filtered_tasks)
     else:
         st.warning("No tasks yet.")
 
