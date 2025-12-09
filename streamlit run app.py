@@ -89,46 +89,8 @@ def logout_button():
         st.rerun()
 
 
-# ------------------ TASKS PAGE ------------------
-def tasks_page():
-    set_background()
-    st.title("📝 Your Tasks")
-    users = load_users()
-    username = st.session_state.user
-    tasks = users[username]["tasks"]
-
-    # Add Task Form
-    st.subheader("➕ Add New Task")
-    with st.form("add_task_form"):
-        title = st.text_input("Task Title")
-        desc = st.text_area("Description")
-        start = st.date_input("Start Date", date.today())
-        end = st.date_input("End Date", date.today())
-        priority = st.selectbox("Priority", ["High", "Medium", "Low"])
-        assigned_by = st.text_input("Assigned By", "")
-        submitted = st.form_submit_button("Save Task")
-
-        if submitted:
-            if title:
-                new_task = {
-                    "Task": title,
-                    "Description": desc,
-                    "Start": str(start),
-                    "End": str(end),
-                    "Status": "Pending",
-                    "Priority": priority,
-                    "AssignedBy": assigned_by
-                }
-                tasks.insert(0, new_task)
-                users[username]["tasks"] = tasks
-                save_users(users)
-                st.success("Task added successfully!")
-                st.rerun()
-            else:
-                st.error("Task title required.")
-
-    st.markdown("---")
-
+# ------------------ DISPLAY TASKS TABLE ------------------
+def display_tasks_table(tasks):
     if len(tasks) == 0:
         st.warning("No tasks found.")
         return
@@ -142,6 +104,8 @@ def tasks_page():
     st.markdown("---")
 
     # Display Rows
+    users = load_users()
+    username = st.session_state.user
     for i, t in enumerate(tasks):
         row_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
         row_cols[0].write(t["Task"])
@@ -159,7 +123,7 @@ def tasks_page():
 
         row_cols[6].write(t.get("AssignedBy", ""))
 
-        # Action Buttons (icon-only)
+        # Action Buttons
         action_col = row_cols[7]
         c1, c2, c3, c4 = action_col.columns(4)
         if c1.button("✏️", key=f"edit{i}"):
@@ -209,6 +173,57 @@ def tasks_page():
             st.rerun()
 
 
+# ------------------ TASKS PAGE ------------------
+def tasks_page():
+    set_background()
+    st.title("📝 Your Tasks")
+    users = load_users()
+    username = st.session_state.user
+    tasks = users[username]["tasks"]
+
+    # Add Task
+    st.subheader("➕ Add New Task")
+    with st.form("add_task_form"):
+        title = st.text_input("Task Title")
+        desc = st.text_area("Description")
+        start = st.date_input("Start Date", date.today())
+        end = st.date_input("End Date", date.today())
+        priority = st.selectbox("Priority", ["High", "Medium", "Low"])
+        assigned_by = st.text_input("Assigned By", "")
+        submitted = st.form_submit_button("Save Task")
+        if submitted:
+            if title:
+                new_task = {
+                    "Task": title,
+                    "Description": desc,
+                    "Start": str(start),
+                    "End": str(end),
+                    "Status": "Pending",
+                    "Priority": priority,
+                    "AssignedBy": assigned_by
+                }
+                tasks.insert(0, new_task)
+                users[username]["tasks"] = tasks
+                save_users(users)
+                st.success("Task added successfully!")
+                st.rerun()
+            else:
+                st.error("Task title required.")
+
+    st.markdown("---")
+
+    # Monthly Filter
+    st.subheader("Filter Tasks by Month")
+    month_filter = st.selectbox(
+        "Select Month",
+        options=[f"{m:02d}" for m in range(1, 13)],
+        format_func=lambda x: date(1900, int(x), 1).strftime("%B")
+    )
+    filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).month == int(month_filter)]
+
+    display_tasks_table(filtered_tasks)
+
+
 # ------------------ PASSWORD PAGE ------------------
 def password_page():
     set_background()
@@ -253,18 +268,31 @@ def dashboard_page():
             st.warning("Not enough data for chart.")
 
 
-# ------------------ CSV PAGE ------------------
+# ------------------ CSV DOWNLOAD ------------------
 def csv_page():
     set_background()
     st.title("⬇ Download Tasks as CSV")
     users = load_users()
     username = st.session_state.user
     tasks = users[username]["tasks"]
-    if len(tasks) > 0:
-        df = pd.DataFrame(tasks)
-        st.download_button("Download CSV", df.to_csv(index=False), "tasks.csv")
-    else:
+
+    if len(tasks) == 0:
         st.warning("No tasks to download.")
+        return
+
+    st.subheader("Select Date Range")
+    start_date = st.date_input("Start Date", date.today())
+    end_date = st.date_input("End Date", date.today())
+
+    filtered_tasks = [t for t in tasks if start_date <= date.fromisoformat(t["Start"]) <= end_date]
+
+    if len(filtered_tasks) == 0:
+        st.warning("No tasks in this date range.")
+        return
+
+    df = pd.DataFrame(filtered_tasks)
+    csv_data = df.to_csv(index=False)
+    st.download_button("Download CSV", csv_data, f"tasks_{start_date}_to_{end_date}.csv")
 
 
 # ------------------ RUN APP ------------------
