@@ -50,14 +50,36 @@ def login_page():
     st.info("Default → Username: sabuj2025 | Password: sabuj")
 
 
-# ------------------ DARK MODE ------------------
+# ------------------ WORK-STYLE BACKGROUND ------------------
+def set_background():
+    st.markdown(
+        """
+        <style>
+        body {
+            background-color: #f5f5f5;
+            color: #111;
+        }
+        .stButton>button {
+            background-color: #1976D2;
+            color: white;
+        }
+        .stTextInput>div>input, .stTextArea>div>textarea, .stDateInput>div>input {
+            background-color: white;
+            color: #111;
+        }
+        </style>
+        """, unsafe_allow_html=True
+    )
+
+
+# ------------------ DARK MODE TOGGLE ------------------
 def dark_mode_toggle():
     dark = st.sidebar.checkbox("🌙 Dark Mode", value=False)
     if dark:
         st.markdown("""
             <style>
             body { background-color: #111 !important; color: white !important; }
-            .stButton button { background-color: #444 !important; color: white !important; }
+            .stButton>button { background-color: #444 !important; color: white !important; }
             </style>
         """, unsafe_allow_html=True)
 
@@ -72,6 +94,7 @@ def logout_button():
 
 # ------------------ TASKS PAGE ------------------
 def tasks_page():
+    set_background()
     st.title("📝 Tasks")
     users = load_users()
     username = st.session_state.user
@@ -134,20 +157,22 @@ def tasks_page():
         row_cols[5].markdown(f"<span style='color:{color}'>{t.get('Priority', 'Low')}</span>", unsafe_allow_html=True)
         row_cols[6].write(t.get("AssignedBy", ""))
 
-        # Action Buttons Right
-        if row_cols[7].button(f"Edit {i}"):
+        # Action Buttons Right (icon-only)
+        action_col = row_cols[7]
+        c1, c2, c3, c4 = action_col.columns(4)
+        if c1.button("✏️", key=f"edit{i}"):
             st.session_state.edit_index = i
-        if row_cols[7].button(f"Delete {i}"):
+        if c2.button("🗑️", key=f"del{i}"):
             tasks.pop(i)
             users[username]["tasks"] = tasks
             save_users(users)
             st.rerun()
-        if row_cols[7].button(f"Complete {i}"):
+        if c3.button("✅", key=f"comp{i}"):
             tasks[i]["Status"] = "Completed"
             users[username]["tasks"] = tasks
             save_users(users)
             st.rerun()
-        if row_cols[7].button(f"Running {i}"):
+        if c4.button("🏃", key=f"run{i}"):
             tasks[i]["Status"] = "Running"
             users[username]["tasks"] = tasks
             save_users(users)
@@ -184,6 +209,7 @@ def tasks_page():
 
 # ------------------ PASSWORD PAGE ------------------
 def password_page():
+    set_background()
     st.title("🔑 Change Password")
     users = load_users()
     username = st.session_state.user
@@ -205,6 +231,7 @@ def password_page():
 
 # ------------------ DASHBOARD ------------------
 def dashboard_page():
+    set_background()
     st.title("📊 Task Dashboard")
     users = load_users()
     username = st.session_state.user
@@ -226,6 +253,7 @@ def dashboard_page():
 
 # ------------------ CSV PAGE ------------------
 def csv_page():
+    set_background()
     st.title("⬇ Download Tasks as CSV")
     users = load_users()
     username = st.session_state.user
