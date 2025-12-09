@@ -28,7 +28,7 @@ def save_users(users):
         json.dump(users, f, indent=4)
 
 
-# ------------------ LOGIN ------------------
+# ------------------ LOGIN PAGE ------------------
 def login_page():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
@@ -70,14 +70,14 @@ def logout_button():
         st.rerun()
 
 
-# ------------------ TASKS PAGE (TABLE) ------------------
+# ------------------ TASKS PAGE ------------------
 def tasks_page():
     st.title("📝 Tasks")
     users = load_users()
     username = st.session_state.user
     tasks = users[username]["tasks"]
 
-    # Add Task (Always on Top)
+    # Add Task (on top)
     st.subheader("➕ Add New Task")
     with st.form("add_task_form"):
         title = st.text_input("Task Title")
@@ -110,44 +110,50 @@ def tasks_page():
     st.markdown("---")
     st.subheader("📋 All Tasks")
 
-    # Table view
     if len(tasks) == 0:
         st.warning("No tasks found.")
         return
 
-    df = pd.DataFrame(tasks)
-    df_display = df.copy()
+    # Table Header
+    header_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
+    headers = ["Task", "Description", "Start", "End", "Status", "Priority", "Assigned By", "Actions"]
+    for col, h in zip(header_cols, headers):
+        col.markdown(f"**{h}**")
 
-    # Priority color-coded
-    def color_priority(val):
-        color_map = {"High": "red", "Medium": "orange", "Low": "green"}
-        return f"color: {color_map.get(val,'blue')}"
+    st.markdown("---")
 
-    # Display table without action buttons
-    st.dataframe(df_display[["Task", "Description", "Start", "End", "Status", "Priority", "AssignedBy"]])
-
-    # Action buttons per row
+    # Display rows
     for i, t in enumerate(tasks):
-        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-        if c1.button(f"Edit {i}"):
+        row_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
+        row_cols[0].write(t["Task"])
+        row_cols[1].write(t["Description"])
+        row_cols[2].write(t["Start"])
+        row_cols[3].write(t["End"])
+        row_cols[4].write(t["Status"])
+        color = {"High": "red", "Medium": "orange", "Low": "green"}.get(t.get("Priority", "Low"), "blue")
+        row_cols[5].markdown(f"<span style='color:{color}'>{t.get('Priority', 'Low')}</span>", unsafe_allow_html=True)
+        row_cols[6].write(t.get("AssignedBy", ""))
+
+        # Action Buttons Right
+        if row_cols[7].button(f"Edit {i}"):
             st.session_state.edit_index = i
-        if c2.button(f"Delete {i}"):
+        if row_cols[7].button(f"Delete {i}"):
             tasks.pop(i)
             users[username]["tasks"] = tasks
             save_users(users)
             st.rerun()
-        if c3.button(f"Complete {i}"):
+        if row_cols[7].button(f"Complete {i}"):
             tasks[i]["Status"] = "Completed"
             users[username]["tasks"] = tasks
             save_users(users)
             st.rerun()
-        if c4.button(f"Running {i}"):
+        if row_cols[7].button(f"Running {i}"):
             tasks[i]["Status"] = "Running"
             users[username]["tasks"] = tasks
             save_users(users)
             st.rerun()
 
-    # Edit Task
+    # Edit Task Modal
     if "edit_index" in st.session_state and st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         t = tasks[idx]
@@ -156,8 +162,8 @@ def tasks_page():
         new_desc = st.text_area("Description", t["Description"])
         new_start = st.date_input("Start Date", date.fromisoformat(t["Start"]))
         new_end = st.date_input("End Date", date.fromisoformat(t["End"]))
-        new_priority = st.selectbox("Priority", ["High", "Medium", "Low"], index=["High","Medium","Low"].index(t.get("Priority","Low")))
-        new_assigned_by = st.text_input("Assigned By", t.get("AssignedBy",""))
+        new_priority = st.selectbox("Priority", ["High", "Medium", "Low"], index=["High", "Medium", "Low"].index(t.get("Priority", "Low")))
+        new_assigned_by = st.text_input("Assigned By", t.get("AssignedBy", ""))
 
         if st.button("Save Changes"):
             tasks[idx] = {
@@ -210,7 +216,7 @@ def dashboard_page():
         df = pd.DataFrame(tasks)
         counts = df["Status"].value_counts()
         if len(counts) > 0:
-            fig, ax = plt.subplots(figsize=(4,4))
+            fig, ax = plt.subplots(figsize=(4, 4))
             ax.pie(counts.values, labels=counts.index, autopct="%1.1f%%")
             ax.set_title("Task Status Distribution")
             st.pyplot(fig)
