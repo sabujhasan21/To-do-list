@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
 import json
 import os
 import matplotlib.pyplot as plt
@@ -103,9 +103,10 @@ def display_tasks_table(tasks):
 
     st.markdown("---")
 
-    # Display Rows
     users = load_users()
     username = st.session_state.user
+
+    # Display Rows
     for i, t in enumerate(tasks):
         row_cols = st.columns([2, 3, 2, 2, 1, 1, 1, 2])
         row_cols[0].write(t["Task"])
@@ -181,7 +182,7 @@ def tasks_page():
     username = st.session_state.user
     tasks = users[username]["tasks"]
 
-    # Add Task
+    # ---------------- Add Task Form ----------------
     st.subheader("➕ Add New Task")
     with st.form("add_task_form"):
         title = st.text_input("Task Title")
@@ -212,15 +213,44 @@ def tasks_page():
 
     st.markdown("---")
 
-    # Monthly Filter
-    st.subheader("Filter Tasks by Month")
-    month_filter = st.selectbox(
-        "Select Month",
-        options=[f"{m:02d}" for m in range(1, 13)],
-        format_func=lambda x: date(1900, int(x), 1).strftime("%B")
-    )
-    filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).month == int(month_filter)]
+    # ---------------- Year + Month Filter ----------------
+    st.subheader("Filter Tasks by Year and Month")
+    years = sorted(list({date.fromisoformat(t["Start"]).year for t in tasks}), reverse=True)
+    if not years:
+        st.warning("No tasks available.")
+        return
+    selected_year = st.selectbox("Select Year", years)
+    months = sorted(list({date.fromisoformat(t["Start"]).month for t in tasks if date.fromisoformat(t["Start"]).year == selected_year}))
+    selected_month = st.selectbox("Select Month", months, format_func=lambda x: date(1900, x, 1).strftime("%B"))
 
+    filtered_tasks = [t for t in tasks if date.fromisoformat(t["Start"]).year == selected_year and date.fromisoformat(t["Start"]).month == selected_month]
+
+    # ---------------- Yearly Chart ----------------
+    st.subheader("📊 Tasks Created per Year")
+    yearly_counts = {}
+    for t in tasks:
+        y = date.fromisoformat(t["Start"]).year
+        yearly_counts[y] = yearly_counts.get(y, 0) + 1
+    fig, ax = plt.subplots(figsize=(6, 3))
+    ax.bar(yearly_counts.keys(), yearly_counts.values(), color="skyblue")
+    ax.set_xlabel("Year")
+    ax.set_ylabel("Number of Tasks")
+    ax.set_title("Tasks Created per Year")
+    st.pyplot(fig)
+
+    # Drill-down: monthly chart
+    st.subheader(f"📅 Tasks per Month in {selected_year}")
+    monthly_counts = {m: 0 for m in range(1, 13)}
+    for t in tasks:
+        if date.fromisoformat(t["Start"]).year == selected_year:
+            m = date.fromisoformat(t["Start"]).month
+            monthly_counts[m] += 1
+    fig2, ax2 = plt.subplots(figsize=(6, 3))
+    ax2.bar([date(1900, m, 1).strftime("%b") for m in monthly_counts.keys()], monthly_counts.values(), color="orange")
+    ax2.set_title(f"Tasks per Month in {selected_year}")
+    st.pyplot(fig2)
+
+    # Display filtered tasks in table
     display_tasks_table(filtered_tasks)
 
 
