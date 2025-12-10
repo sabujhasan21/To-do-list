@@ -21,18 +21,40 @@ def save_data(data):
 users = load_data()
 
 # -----------------------------
-# Initialize Streamlit Session
+# Fix Missing Keys (KEYERROR FIX)
+# -----------------------------
+def ensure_user_structure(username):
+    if username not in users:
+        users[username] = {}
+
+    if "password" not in users[username]:
+        users[username]["password"] = ""
+
+    if "tasks" not in users[username]:
+        users[username]["tasks"] = []
+
+    if "completed" not in users[username]:
+        users[username]["completed"] = []
+
+    save_data(users)
+
+# -----------------------------
+# Streamlit Session
 # -----------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = None
+if "edit_mode" not in st.session_state:
+    st.session_state.edit_mode = False
+if "edit_index" not in st.session_state:
+    st.session_state.edit_index = None
 
 # -----------------------------
 # Login Page
 # -----------------------------
 def login_page():
-    st.title("🔐 Login")
+    st.title("Daily To Do List")
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -41,32 +63,20 @@ def login_page():
         if username in users and users[username]["password"] == password:
             st.session_state.logged_in = True
             st.session_state.username = username
+            ensure_user_structure(username)
             st.rerun()
         else:
             st.error("Invalid username or password")
 
-    st.write("If new user → It will auto-create your account.")
-
 # -----------------------------
-# Create new user if not exists
+# Sidebar
 # -----------------------------
-def create_user(username):
-    users[username] = {
-        "password": "",
-        "tasks": [],
-        "completed": []
-    }
-    save_data(users)
-
-# -----------------------------
-# App Sidebar
-# -----------------------------
-def app_sidebar():
-    st.sidebar.title("📌 DAILY TO DO LIST")
+def menu_sidebar():
+    st.sidebar.title("Menu")
 
     choice = st.sidebar.radio(
-        "Menu",
-        ["➕ Add Task", "📄 Your Tasks", "✅ Completed Tasks"]
+        "Select",
+        ["Add Task", "Your Tasks", "Completed Tasks"]
     )
 
     if st.sidebar.button("Logout"):
@@ -79,20 +89,21 @@ def app_sidebar():
 # -----------------------------
 # Add Task Page
 # -----------------------------
-def add_task_page():
-    st.title("➕ Add New Task")
+def add_task():
+    st.title("Add New Task")
 
-    task_title = st.text_input("Task Title")
+    task = st.text_input("Task Name")
     priority = st.selectbox("Priority", ["High", "Medium", "Low"])
 
-    if st.button("Add Task"):
-        if task_title.strip() == "":
+    if st.button("Add"):
+        if task.strip() == "":
             st.error("Task cannot be empty")
             return
 
         username = st.session_state.username
+
         new_task = {
-            "title": task_title,
+            "title": task,
             "priority": priority,
             "status": "Running",
             "created": datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -100,47 +111,50 @@ def add_task_page():
 
         users[username]["tasks"].insert(0, new_task)
         save_data(users)
-        st.success("Task added successfully!")
+        st.success("Task Added!")
         st.rerun()
 
 # -----------------------------
-# Display Task Table
+# Task Display Table
 # -----------------------------
-def display_task_table(task_list):
-    if len(task_list) == 0:
-        st.info("No tasks found.")
+def show_tasks():
+    st.title("Your Tasks")
+
+    username = st.session_state.username
+    tasks = users[username]["tasks"]
+
+    if st.session_state.edit_mode:
+        edit_task()
         return
 
-    for i, task in enumerate(task_list):
-        col1, col2, col3, col4 = st.columns([4, 2, 1, 1])
+    if len(tasks) == 0:
+        st.info("No tasks added yet.")
+        return
+
+    for i, task in enumerate(tasks):
+        col1, col2, col3, col4, col5 = st.columns([4, 2, 1, 1, 1])
 
         with col1:
             st.write(f"**{task['title']}**")
-            st.caption(f"Priority: {task['priority']} • Created: {task['created']}")
+            st.caption(f"{task['priority']} | {task['created']}")
 
         with col2:
             st.write(task["status"])
 
-        # RUNNING TASKS ONLY
-        if task["status"] != "Completed":
-            with col3:
-                if st.button("✏️", key=f"edit_{i}"):
-                    st.session_state.edit_index = i
-                    st.session_state.show_edit = True
-                    st.rerun()
+        with col3:
+            if st.button("✏", key=f"edit{i}"):
+                st.session_state.edit_mode = True
+                st.session_state.edit_index = i
+                st.rerun()
 
-            with col4:
-                if st.button("❌", key=f"delete_{i}"):
-                    username = st.session_state.username
-                    users[username]["tasks"].pop(i)
-                    save_data(users)
-                    st.rerun()
+        with col4:
+            if st.button("❌", key=f"del{i}"):
+                users[username]["tasks"].pop(i)
+                save_data(users)
+                st.rerun()
 
-        # COMPLETE BUTTON UNDER TABLE
-        c1, c2, _ = st.columns([1, 1, 4])
-        if task["status"] != "Completed":
-            if c1.button("✔ Complete", key=f"complete_{i}"):
-                username = st.session_state.username
+        with col5:
+            if st.button("✔", key=f"comp{i}"):
                 task["status"] = "Completed"
                 users[username]["completed"].append(task)
                 users[username]["tasks"].pop(i)
@@ -150,86 +164,63 @@ def display_task_table(task_list):
         st.markdown("---")
 
 # -----------------------------
-# Edit Task Window
+# Edit Task Page
 # -----------------------------
-def edit_task_window():
+def edit_task():
     username = st.session_state.username
     i = st.session_state.edit_index
-
     task = users[username]["tasks"][i]
 
-    st.subheader("✏ Edit Task")
+    st.title("Edit Task")
 
     new_title = st.text_input("Task Name", value=task["title"])
-    new_priority = st.selectbox("Priority", ["High", "Medium", "Low"], index=["High","Medium","Low"].index(task["priority"]))
+    new_priority = st.selectbox(
+        "Priority",
+        ["High", "Medium", "Low"],
+        index=["High", "Medium", "Low"].index(task["priority"])
+    )
 
     if st.button("Save"):
         task["title"] = new_title
         task["priority"] = new_priority
         save_data(users)
-        st.session_state.show_edit = False
+        st.session_state.edit_mode = False
         st.rerun()
 
     if st.button("Cancel"):
-        st.session_state.show_edit = False
+        st.session_state.edit_mode = False
         st.rerun()
-
-# -----------------------------
-# Tasks Page
-# -----------------------------
-def task_list_page():
-    st.title("📄 Your Tasks")
-
-    username = st.session_state.username
-
-    if "tasks" not in users[username]:
-        users[username]["tasks"] = []
-        save_data(users)
-
-    tasks = users[username]["tasks"]
-
-    if "show_edit" in st.session_state and st.session_state.show_edit:
-        edit_task_window()
-    else:
-        display_task_table(tasks)
 
 # -----------------------------
 # Completed Tasks Page
 # -----------------------------
-def completed_page():
-    st.title("✅ Completed Tasks (Permanent Log)")
+def completed_tasks():
+    st.title("Completed Tasks")
 
     username = st.session_state.username
-
-    completed = users[username].get("completed", [])
+    completed = users[username]["completed"]
 
     if len(completed) == 0:
-        st.info("No completed tasks yet.")
+        st.info("No completed tasks.")
         return
 
     for task in completed:
-        st.success(f"✔ {task['title']} — {task['created']}")
-        st.caption(f"Priority: {task['priority']}")
+        st.success(f"✔ {task['title']} ({task['priority']}) — {task['created']}")
         st.markdown("---")
 
 # -----------------------------
 # MAIN APP
 # -----------------------------
 if st.session_state.logged_in:
-    username = st.session_state.username
-    if username not in users:
-        create_user(username)
+    ensure_user_structure(st.session_state.username)
 
-    menu = app_sidebar()
+    page = menu_sidebar()
 
-    if menu == "➕ Add Task":
-        add_task_page()
-
-    elif menu == "📄 Your Tasks":
-        task_list_page()
-
-    elif menu == "✅ Completed Tasks":
-        completed_page()
-
+    if page == "Add Task":
+        add_task()
+    elif page == "Your Tasks":
+        show_tasks()
+    elif page == "Completed Tasks":
+        completed_tasks()
 else:
     login_page()
