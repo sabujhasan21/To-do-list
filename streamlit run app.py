@@ -10,7 +10,7 @@ st.set_page_config(page_title="Daily To-Do List", layout="wide")
 USERS_FILE = "users.json"
 DEFAULT_USER_STRUCT = {"password": "", "tasks": [], "completed": []}
 
-# ------------------ Helpers ------------------
+# ------------------ Helpers: load / save & ensure structure ------------------
 def ensure_file():
     if not os.path.exists(USERS_FILE):
         with open(USERS_FILE, "w") as f:
@@ -38,6 +38,7 @@ def save_users(users):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=4)
 
+# ------------------ Notification popup ------------------
 def notify(message, kind="success"):
     color = {
         "success": "#2E7D32",
@@ -61,7 +62,9 @@ def notify(message, kind="success"):
         font-size: 16px;
         text-align:center;
         max-width: 90%;
-    ">{safe_msg}</div>
+    ">
+      {safe_msg}
+    </div>
     <style>
       @keyframes fadeInOut {{
         0%   {{ opacity: 0; transform: translate(-50%, -60%) scale(0.95); }}
@@ -76,6 +79,7 @@ def notify(message, kind="success"):
     """
     st.markdown(html, unsafe_allow_html=True)
 
+# ------------------ Page CSS ------------------
 def inject_page_style():
     st.markdown("""
     <style>
@@ -104,7 +108,7 @@ def inject_page_style():
 def login_page():
     st.title("🔐 Daily To-Do List — Login")
     users = load_users()
-    col1, col2 = st.columns([2,1])
+    col1, col2 = st.columns([2, 1])
     with col1:
         username = st.text_input("Username", key="login_user")
         password = st.text_input("Password", type="password", key="login_pwd")
@@ -113,11 +117,12 @@ def login_page():
                 st.session_state.logged = True
                 st.session_state.user = username
                 notify("Login successful", "success")
-                st.rerun()
+                st.experimental_rerun()
             else:
                 notify("Invalid username or password", "error")
     with col2:
         st.write("")
+
     st.markdown("---")
     st.subheader("Create new account")
     new_user = st.text_input("New username", key="new_user")
@@ -275,6 +280,36 @@ def completed_page():
                     f"Priority: {t.get('Priority','-')} | Assigned By: {t.get('AssignedBy','-')}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
+# ------------------ CSV EXPORT ------------------
+def csv_page():
+    inject_page_style()
+    users = load_users()
+    username = st.session_state.user
+    tasks = users[username].get("tasks", []) + users[username].get("completed", [])
+
+    st.header("⬇ Export Tasks to CSV")
+
+    if not tasks:
+        st.info("No tasks available to download.")
+        return
+
+    start = st.date_input("Start Date", date.today(), key="csv_start")
+    end = st.date_input("End Date", date.today(), key="csv_end")
+
+    filtered = [t for t in tasks if start <= date.fromisoformat(t["Start"]) <= end]
+
+    if not filtered:
+        st.info("No tasks found in this date range")
+        return
+
+    df = pd.DataFrame(filtered)
+    st.download_button(
+        label="Download CSV",
+        data=df.to_csv(index=False),
+        file_name="tasks.csv",
+        mime="text/csv"
+    )
+
 # ------------------ Main ------------------
 def main():
     if "logged" not in st.session_state:
@@ -290,7 +325,7 @@ def main():
 
     inject_page_style()
     st.sidebar.title("📌 Menu")
-    menu_choice = st.sidebar.radio("", ["Add Task","Active Tasks","Completed Tasks"])
+    menu_choice = st.sidebar.radio("", ["Add Task","Active Tasks","Completed Tasks","Download Tasks"])
     if st.sidebar.button("Logout"):
         st.session_state.logged = False
         st.session_state.user = None
@@ -303,6 +338,8 @@ def main():
         task_list_page()
     elif menu_choice=="Completed Tasks":
         completed_page()
+    elif menu_choice=="Download Tasks":
+        csv_page()
 
 if __name__=="__main__":
     main()
