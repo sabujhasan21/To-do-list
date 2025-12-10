@@ -25,6 +25,26 @@ def save_users(users):
         json.dump(users, f, indent=4)
 
 
+# --------------- FIX MISSING KEYS (NO MORE KEYERROR) -----------
+def ensure_user(username):
+    users = load_users()
+
+    if username not in users:
+        users[username] = {"password": "", "tasks": [], "completed": []}
+
+    if "tasks" not in users[username]:
+        users[username]["tasks"] = []
+
+    if "completed" not in users[username]:
+        users[username]["completed"] = []
+
+    if "password" not in users[username]:
+        users[username]["password"] = ""
+
+    save_users(users)
+    return users
+
+
 # ------------------ LOGIN PAGE ------------------
 def login_page():
     st.title("🔐 Login")
@@ -33,17 +53,22 @@ def login_page():
 
     if st.button("Login"):
         users = load_users()
+
+        # Fix key
+        if user in users:
+            ensure_user(user)
+
         if user in users and users[user]["password"] == pwd:
             st.session_state.logged = True
             st.session_state.user = user
+            st.experimental_rerun()
         else:
             st.error("❌ Invalid username or password")
 
 
 # ------------------ UI STYLE ------------------
 def page_style():
-    st.markdown(
-        """
+    st.markdown("""
         <style>
         .task-card {
             background: white;
@@ -64,14 +89,12 @@ def page_style():
             transform: scale(0.97);
         }
         </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    """, unsafe_allow_html=True)
 
 
 # ------------------ ADD TASK ------------------
 def add_task_page():
-    users = load_users()
+    users = ensure_user(st.session_state.user)
     username = st.session_state.user
     tasks = users[username]["tasks"]
 
@@ -107,11 +130,12 @@ def add_task_page():
 
 # ------------------ DISPLAY TASKS ------------------
 def task_list_page():
-    st.subheader("📝 Your Active Tasks (Pending + Running)")
-    users = load_users()
+    users = ensure_user(st.session_state.user)
     username = st.session_state.user
     tasks = users[username]["tasks"]
     completed = users[username]["completed"]
+
+    st.subheader("📝 Your Active Tasks (Pending + Running)")
 
     if len(tasks) == 0:
         st.info("No Active Tasks")
@@ -139,18 +163,19 @@ def task_list_page():
 
         c1, c2, c3, c4 = st.columns(4)
 
-        # ---------------- EDIT ----------------
+        # EDIT
         if c1.button("✏️ Edit", key=f"e{i}"):
             st.session_state.edit_id = i
 
-        # ---------------- DELETE ----------------
+        # DELETE
         if c2.button("🗑 Delete", key=f"d{i}"):
             tasks.pop(i)
             users[username]["tasks"] = tasks
             save_users(users)
             st.success("Task deleted!")
+            st.experimental_rerun()
 
-        # ---------------- COMPLETE ----------------
+        # COMPLETE
         if c3.button("✔ Complete", key=f"c{i}"):
             completed.insert(0, t)
             tasks.pop(i)
@@ -158,14 +183,16 @@ def task_list_page():
             users[username]["completed"] = completed
             save_users(users)
             st.success("Task moved to Completed!")
+            st.experimental_rerun()
 
-        # ---------------- RUNNING ----------------
+        # RUNNING
         if c4.button("🏃 Running", key=f"r{i}"):
             tasks[i]["Status"] = "Running"
             users[username]["tasks"] = tasks
             save_users(users)
+            st.experimental_rerun()
 
-    # ---------------- EDIT FORM ----------------
+    # EDIT FORM
     if "edit_id" in st.session_state and st.session_state.edit_id is not None:
         idx = st.session_state.edit_id
         t = tasks[idx]
@@ -176,7 +203,8 @@ def task_list_page():
             nd = st.text_area("Description", t["Description"])
             ns = st.date_input("Start", date.fromisoformat(t["Start"]))
             ne = st.date_input("End", date.fromisoformat(t["End"]))
-            np = st.selectbox("Priority", ["High", "Medium", "Low"], index=["High","Medium","Low"].index(t["Priority"]))
+            np = st.selectbox("Priority", ["High", "Medium", "Low"],
+                              index=["High", "Medium", "Low"].index(t["Priority"]))
             na = st.text_input("Assigned By", t["AssignedBy"])
 
             sv = st.form_submit_button("Save Changes")
@@ -195,14 +223,16 @@ def task_list_page():
                 save_users(users)
                 st.success("Task updated!")
                 st.session_state.edit_id = None
+                st.experimental_rerun()
 
 
 # ------------------ COMPLETED TASKS PAGE ------------------
 def completed_page():
-    st.subheader("✅ Completed Tasks (Permanent Record)")
-    users = load_users()
+    users = ensure_user(st.session_state.user)
     username = st.session_state.user
     completed = users[username]["completed"]
+
+    st.subheader("✅ Completed Tasks (Permanent Record)")
 
     if len(completed) == 0:
         st.info("No Completed Tasks Yet")
@@ -228,7 +258,7 @@ def completed_page():
 
 # ------------------ CSV EXPORT ------------------
 def csv_page():
-    users = load_users()
+    users = ensure_user(st.session_state.user)
     username = st.session_state.user
     tasks = users[username]["tasks"] + users[username]["completed"]
 
@@ -256,7 +286,7 @@ def csv_page():
 
 # ------------------ PASSWORD ------------------
 def password_page():
-    users = load_users()
+    users = ensure_user(st.session_state.user)
     username = st.session_state.user
 
     st.subheader("🔑 Change Password")
