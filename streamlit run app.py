@@ -10,7 +10,7 @@ st.set_page_config(page_title="Daily To-Do List", layout="wide")
 USERS_FILE = "users.json"
 DEFAULT_USER_STRUCT = {"password": "", "tasks": [], "completed": []}
 
-# ------------------ Helpers: load / save & ensure structure ------------------
+# ------------------ Helpers ------------------
 def ensure_file():
     if not os.path.exists(USERS_FILE):
         with open(USERS_FILE, "w") as f:
@@ -38,7 +38,6 @@ def save_users(users):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=4)
 
-# ------------------ Notification popup ------------------
 def notify(message, kind="success"):
     color = {
         "success": "#2E7D32",
@@ -62,9 +61,7 @@ def notify(message, kind="success"):
         font-size: 16px;
         text-align:center;
         max-width: 90%;
-    ">
-      {safe_msg}
-    </div>
+    ">{safe_msg}</div>
     <style>
       @keyframes fadeInOut {{
         0%   {{ opacity: 0; transform: translate(-50%, -60%) scale(0.95); }}
@@ -79,7 +76,6 @@ def notify(message, kind="success"):
     """
     st.markdown(html, unsafe_allow_html=True)
 
-# ------------------ Page CSS ------------------
 def inject_page_style():
     st.markdown("""
     <style>
@@ -108,7 +104,7 @@ def inject_page_style():
 def login_page():
     st.title("🔐 Daily To-Do List — Login")
     users = load_users()
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([2,1])
     with col1:
         username = st.text_input("Username", key="login_user")
         password = st.text_input("Password", type="password", key="login_pwd")
@@ -122,7 +118,6 @@ def login_page():
                 notify("Invalid username or password", "error")
     with col2:
         st.write("")
-
     st.markdown("---")
     st.subheader("Create new account")
     new_user = st.text_input("New username", key="new_user")
